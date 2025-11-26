@@ -6,10 +6,37 @@ interface FormattedDescriptionProps {
   description: string;
 }
 
+// Define strict types for our parsed elements
+type DescriptionElement =
+  | { type: 'p'; content: string }
+  | { type: 'ul'; content: string[] };
+
 const FormattedDescription: React.FC<FormattedDescriptionProps> = ({ description }) => {
   if (!description) return null;
 
-  // A list of common headings to look for.
+  const lines = description.split('\n');
+  const elements: DescriptionElement[] = [];
+  let currentList: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (line.startsWith('*')) {
+      currentList.push(line.replace(/^\*\s*/, ''));
+    } else {
+      if (currentList.length > 0) {
+        elements.push({ type: 'ul', content: currentList });
+        currentList = [];
+      }
+      if (line) {
+        elements.push({ type: 'p', content: line });
+      }
+    }
+  }
+  if (currentList.length > 0) {
+    elements.push({ type: 'ul', content: currentList });
+  }
+
   const KNOWN_HEADINGS = [
     'description',
     'requirements',
@@ -20,40 +47,25 @@ const FormattedDescription: React.FC<FormattedDescriptionProps> = ({ description
     'about globalogic',
   ];
 
-  const blocks = description.split(/\n\s*\n/);
-
   return (
-    <div className="mt-4 max-w-none text-slate-300 space-y-4">
-      {blocks.map((block, index) => {
-        const trimmedBlock = block.trim();
-
-        // 1. Check if the block is a known heading
-        if (KNOWN_HEADINGS.includes(trimmedBlock.toLowerCase().replace(/:$/, ''))) {
+    <div className="prose prose-invert max-w-none text-slate-300 prose-headings:text-white prose-headings:font-semibold prose-ul:my-3 prose-p:my-3 prose-li:my-1">
+      {elements.map((el, index) => {
+        if (el.type === 'ul') {
           return (
-            <h3 key={index} className="font-semibold text-white text-lg">
-              {trimmedBlock}
-            </h3>
-          );
-        }
-
-        // 2. Check if the block is a bulleted list
-        if (trimmedBlock.startsWith('*')) {
-          const listItems = trimmedBlock.split('\n').map(item => item.trim().replace(/^\*\s*/, ''));
-          return (
-            <ul key={index} className="list-disc list-inside space-y-1">
-              {listItems.map((item, lIndex) => (
-                <li key={lIndex}>{item}</li>
-              ))}
+            <ul key={index}>
+              {el.content.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
             </ul>
           );
         }
 
-        // 3. Otherwise, render as a standard paragraph
-        return (
-          <p key={index}>
-            {trimmedBlock}
-          </p>
-        );
+        // Since it's not a list, el.content is a string.
+        const isHeading = KNOWN_HEADINGS.includes(el.content.toLowerCase().replace(/:$/, ''));
+
+        if (isHeading) {
+          return <h3 key={index}>{el.content}</h3>;
+        } else {
+          return <p key={index}>{el.content}</p>;
+        }
       })}
     </div>
   );
